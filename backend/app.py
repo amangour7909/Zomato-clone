@@ -3,6 +3,7 @@ from flask_cors import CORS
 from flask_bcrypt import Bcrypt
 from database import db
 from models import User, MenuItem, Order
+from bson.objectid import ObjectId  # Add this import
 import jwt
 import datetime
 from functools import wraps
@@ -19,11 +20,35 @@ def token_required(f):
         if not token:
             return jsonify({'message': 'Token is missing'}), 401
         try:
-            data = jwt.decode(token.split()[1], app.config['SECRET_KEY'], algorithms=["HS256"])
-            current_user = db.users.find_one({'_id': data['user_id']})
-        except:
-            return jsonify({'message': 'Token is invalid'}), 401
-        return f(current_user, *args, **kwargs)
+            # Check if token follows 'Bearer <token>' format
+            if not token.startswith('Bearer '):
+                return jsonify({'message': 'Invalid token format. Use Bearer <token>'}), 401
+            
+            token_value = token.split()[1]
+            data = jwt.decode(token_value, app.config['SECRET_KEY'], algorithms=["HS256"])
+            
+            # Convert string ID to ObjectId for MongoDB query
+            try:
+                user_id = ObjectId(data['user_id'])
+                current_user = db.users.find_one({'_id': user_id})
+                if not current_user:
+                    print(f"User not found for ID: {user_id}")  # Debug log
+                    return jsonify({'message': 'User not found'}), 401
+                    
+                print(f"User authenticated: {current_user['email']}")  # Debug log
+                
+            except Exception as e:
+                print(f"Error converting user_id: {str(e)}")  # Debug log
+                return jsonify({'message': 'Invalid user ID format'}), 401
+            
+            return f(current_user, *args, **kwargs)
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': 'Invalid token'}), 401
+        except Exception as e:
+            print(f"Token validation error: {str(e)}")  # Debug log
+            return jsonify({'message': 'Token validation failed', 'error': str(e)}), 401
     return decorated
 
 @app.route('/api/signup', methods=['POST'])
@@ -60,11 +85,13 @@ def signin():
         if not bcrypt.check_password_hash(user['password'], data['password']):
             return jsonify({'message': 'Invalid email or password'}), 401
 
-        # Generate token
+        # Generate token with str(ObjectId)
         token = jwt.encode({
-            'user_id': str(user['_id']),
+            'user_id': str(user['_id']),  # Make sure this is a string
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         }, app.config['SECRET_KEY'])
+        
+        print(f"Generated token for user: {user['email']}")  # Debug log
         
         return jsonify({
             'token': token,
@@ -97,31 +124,34 @@ def create_order(current_user):
     try:
         data = request.get_json()
         
+        # Basic validation
         if not data or 'items' not in data or 'total_amount' not in data:
-            return jsonify({'message': 'Invalid order data'}), 400
-
-        order = Order(
-            user_id=str(current_user['_id']),
-            items=data['items'],
-            total_amount=data['total_amount'],
-            delivery_fee=data.get('delivery_fee', 0),
-            payment_details=data.get('payment_details', {}),
-            status="confirmed" if data.get('payment_details', {}).get('payment_status') == 'completed' else "pending"
-        )
-        
-        result = db.orders.insert_one(order.to_dict())
-        
-        if result.inserted_id:
-            return jsonify({
-                'message': 'Order created successfully',
-                'order_id': str(result.inserted_id)
-            }), 201
-        else:
-            return jsonify({'message': 'Failed to create order'}), 500
+            return jsonify({'message': 'Missing required fields'}), 400
+            
+        # Create order
+        try:
+            order = Order(
+                user_id=str(current_user['_id']),
+                items=data['items'],
+                total_amount=float(data['total_amount']),
+                status=data.get('status', 'pending')
+            )
+            
+            result = db.orders.insert_one(order.to_dict())
+            
+            if result.inserted_id:
+                return jsonify({
+                    'message': 'Order created successfully',
+                    'order_id': str(result.inserted_id)
+                }), 201
+                
+        except Exception as e:
+            print(f"Error creating order: {str(e)}")
+            return jsonify({'message': 'Invalid order data', 'error': str(e)}), 400
             
     except Exception as e:
-        print(f"Error creating order: {str(e)}")
-        return jsonify({'message': 'An error occurred while creating the order'}), 500
+        print(f"Unexpected error: {str(e)}")
+        return jsonify({'message': 'Server error', 'error': str(e)}), 500
 
 @app.route('/api/orders', methods=['GET'])
 @token_required
