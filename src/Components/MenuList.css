@@ -1,0 +1,41 @@
+.menu-list {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 2rem 0;
+    overflow-x: auto;
+    scrollbar-width: none; /* For Firefox */
+  }
+  
+  .menu-list::-webkit-scrollbar {
+    display: none; /* For Chrome, Safari, and Edge */
+  }
+  
+  .menu-item {
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  
+  .menu-item:hover {
+    transform: scale(1.05);
+  }
+  
+  .menu-image {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 0.5rem;
+  }
+  
+  .menu-name {
+    font-size: 0.9rem;
+    color: #333;
+  }
+
+  .menu-name.active {
+    color: #ff4500;
+    font-weight: bold;
+  }
