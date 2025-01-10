@@ -7,11 +7,21 @@ from bson.objectid import ObjectId  # Add this import
 import jwt
 import datetime
 from functools import wraps
+from werkzeug.utils import secure_filename
+import os
 
 app = Flask(__name__)
 CORS(app)
 bcrypt = Bcrypt(app)
 app.config['SECRET_KEY'] = '4f1a7d886ad698f6487314fade583b563d21445f9cb31b5c480fd5b36896b852'
+
+# Add these configurations after app initialization
+UPLOAD_FOLDER = 'static/images'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def token_required(f):
     @wraps(f)
@@ -98,7 +108,8 @@ def signin():
             'message': 'Login successful',
             'user': {
                 'email': user['email'],
-                'username': user['username']
+                'username': user['username'],
+                'isAdmin': user.get('isAdmin', False)  # Add isAdmin flag
             }
         }), 200
 
@@ -158,6 +169,44 @@ def create_order(current_user):
 def get_orders(current_user):
     orders = list(db.orders.find({'user_id': str(current_user['_id'])}, {'_id': 0}))
     return jsonify(orders)
+
+@app.route('/api/admin/menu', methods=['POST'])
+@token_required  # Keep token validation but remove admin check
+def add_menu_item(current_user):
+    try:
+        if 'image' not in request.files:
+            return jsonify({'message': 'No image file'}), 400
+            
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
+            
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            
+            # Get other form data
+            name = request.form.get('name')
+            price = float(request.form.get('price'))
+            category = request.form.get('category')
+            description = request.form.get('description')
+            
+            # Create menu item
+            menu_item = MenuItem(
+                name=name,
+                price=price,
+                category=category,
+                image_url=f"/static/images/{filename}",
+                description=description
+            )
+            
+            db.menu_items.insert_one(menu_item.to_dict())
+            return jsonify({'message': 'Menu item added successfully'}), 201
+            
+    except Exception as e:
+        print(f"Error adding menu item: {str(e)}")
+        return jsonify({'message': 'Error adding menu item', 'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
