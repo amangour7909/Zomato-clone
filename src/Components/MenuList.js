@@ -1,18 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import "./MenuList.css";
 import { menu_list } from "../assets/frontend_assets/assets";
 
 function MenuList({ selectedCategory, setSelectedCategory }) {
+  useEffect(() => {
+    setSelectedCategory("All Items");
+  }, [setSelectedCategory]);
+
   return (
     <section className="menu-list">
-      <div className="menu-item" onClick={() => setSelectedCategory("All")}>
-        <p className={`menu-name ${selectedCategory === "All" ? "active" : ""}`}>
-          All Items
-        </p>
-      </div>
-      {menu_list.map((menu, index) => (
+      {menu_list.map((menu) => (
         <div
-          key={index}
+          key={menu.menu_name}
           className="menu-item"
           onClick={() => setSelectedCategory(menu.menu_name)}
         >

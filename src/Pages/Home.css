@@ -1,10 +1,11 @@
 .home-section {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center; /* Center all contents horizontally */
     padding: 2rem;
     background-color: #ffedd5;
-    
+    flex-direction: column; /* Stack contents vertically */
+    text-align: center; /* Center text */
   }
   
   .home-content {
@@ -42,4 +43,3 @@
     width: 400px;
     border-radius: 15px;
   }
-  

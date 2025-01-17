@@ -3,7 +3,7 @@ import "./Home.css";
 
 function Home() {
   return (
-    <section className="home-section">
+    <section className="home-section" style={{ display: "flex", justifyContent: "center", alignItems: "center", flexDirection: "column" }}>
       <div className="home-content">
         <h1>Order your favourite food here</h1>
         <p>

@@ -1,13 +1,33 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Cart.css';
 
-const Cart = ({ cart, food_list, setCart }) => {
+const Cart = ({ cart, setCart }) => {
+    const [cartItems, setCartItems] = useState([]);
+    const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
-    const cartItems = Object.keys(cart).map((id) => {
-        const food = food_list.find((item) => item._id === id);
-        return { ...food, quantity: cart[id] };
-    });
+
+    useEffect(() => {
+        const fetchCartItems = async () => {
+            try {
+                const response = await fetch('http://localhost:5000/api/menu');
+                const menuItems = await response.json();
+                
+                const items = Object.keys(cart).map(id => {
+                    const item = menuItems.find(menuItem => menuItem._id === id);
+                    return item ? { ...item, quantity: cart[id] } : null;
+                }).filter(item => item !== null);
+
+                setCartItems(items);
+                setLoading(false);
+            } catch (error) {
+                console.error('Error fetching cart items:', error);
+                setLoading(false);
+            }
+        };
+
+        fetchCartItems();
+    }, [cart]);
 
     const increaseQuantity = (food) => {
         setCart((prevCart) => ({
@@ -48,6 +68,8 @@ const Cart = ({ cart, food_list, setCart }) => {
         });
     };
 
+    if (loading) return <div className="loading">Loading...</div>;
+
     return (
         <div className="cart-container">
             <h2>Cart</h2>
@@ -69,7 +91,7 @@ const Cart = ({ cart, food_list, setCart }) => {
                         <tbody>
                             {cartItems.map((item) => (
                                 <tr key={item._id}>
-                                    <td><img src={item.image} alt={item.name} className="cart-item-image" /></td>
+                                    <td><img src={`http://localhost:5000${item.image_url}`} alt={item.name} className="cart-item-image" /></td>
                                     <td>{item.name}</td>
                                     <td>${item.price}</td>
                                     <td>{item.quantity}</td>

@@ -1,11 +1,30 @@
-import React, { useState } from 'react';
-import { food_list } from '../assets/frontend_assets/assets';
+import React, { useState, useEffect } from 'react';
 import './FoodItems.css';
 
 const FoodItems = ({ cart, setCart, selectedCategory }) => {
-    const filteredFoodList = selectedCategory === "All"
-        ? food_list
-        : food_list.filter(food => food.category === selectedCategory);
+    const [foodItems, setFoodItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchFoodItems = async () => {
+            try {
+                const url = `http://localhost:5000/api/menu${selectedCategory !== "All Items" ? `?category=${selectedCategory}` : ''}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch menu items');
+                }
+                const data = await response.json();
+                setFoodItems(data);
+                setLoading(false);
+            } catch (err) {
+                setError(err.message);
+                setLoading(false);
+            }
+        };
+
+        fetchFoodItems();
+    }, [selectedCategory]);
 
     const addToCart = (food) => {
         setCart((prevCart) => ({
@@ -26,25 +45,36 @@ const FoodItems = ({ cart, setCart, selectedCategory }) => {
         });
     };
 
+    if (loading) return <div className="loading">Loading...</div>;
+    if (error) return <div className="error">Error: {error}</div>;
+
     return (
         <div className="food-items-container">
-            {filteredFoodList.map((food) => (
-                <div className="food-item" key={food._id}>
-                    <img src={food.image} alt={food.name} className="food-image" />
-                    <h3>{food.name}</h3>
-                    <p>{food.description}</p>
-                    <p className="food-price">${food.price}</p>
-                    <div className="food-item-actions">
-                        <button onClick={() => addToCart(food)}>+</button>
-                        {cart[food._id] && (
-                            <>
-                                <span>{cart[food._id]}</span>
-                                <button onClick={() => removeFromCart(food)}>-</button>
-                            </>
-                        )}
+            {foodItems.length === 0 ? (
+                <div className="no-items">No items found in this category</div>
+            ) : (
+                foodItems.map((food) => (
+                    <div className="food-item" key={food._id}>
+                        <img 
+                            src={`http://localhost:5000${food.image_url}`} 
+                            alt={food.name} 
+                            className="food-image" 
+                        />
+                        <h3>{food.name}</h3>
+                        <p>{food.description}</p>
+                        <p className="food-price">${food.price}</p>
+                        <div className="food-item-actions">
+                            <button onClick={() => addToCart(food)}>+</button>
+                            {cart[food._id] && (
+                                <>
+                                    <span>{cart[food._id]}</span>
+                                    <button onClick={() => removeFromCart(food)}>-</button>
+                                </>
+                            )}
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))
+            )}
         </div>
     );
 };
